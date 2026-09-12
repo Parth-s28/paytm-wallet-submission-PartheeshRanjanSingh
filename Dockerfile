@@ -1,7 +1,6 @@
 FROM gradle:8.7-jdk21 AS build
 WORKDIR /app
 
-# Accept the variable from Docker Compose
 ARG JVM_OPTS=""
 ENV JAVA_TOOL_OPTIONS=${JVM_OPTS}
 
@@ -14,14 +13,19 @@ RUN gradle bootJar --no-daemon -x test
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Re-declare the ARG in the final runtime stage
 ARG JVM_OPTS=""
 ENV JAVA_TOOL_OPTIONS=${JVM_OPTS}
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
 
-COPY --from=build /app/build/libs/*.jar app.jar
+RUN apk add --no-cache wget && \
+    addgroup -S appgroup && \
+    adduser -S appuser -G appgroup
+
+
+USER appuser:appgroup
+
+
+COPY --from=build --chown=appuser:appgroup /app/build/libs/*.jar app.jar
 
 EXPOSE 8080
 

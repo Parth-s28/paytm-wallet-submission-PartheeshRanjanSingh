@@ -3,12 +3,13 @@ package com.paytm.assignment.service;
 import com.paytm.assignment.api.TransferModels;
 import com.paytm.assignment.repository.TransferRepository;
 import com.paytm.assignment.repository.WalletRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,12 +20,22 @@ public class TransferService {
     private final TransferRepository transferRepository;
     private final WalletRepository walletRepository;
 
+    private final Counter transfersCreatedCounter;
+    private final Counter transfersDeclinedCounter;
+    private final Counter transfersReplayCounter;
+
     public TransferService(JdbcTemplate jdbc,
                            TransferRepository transferRepository,
-                           WalletRepository walletRepository) {
+                           WalletRepository walletRepository,
+                           MeterRegistry registry) {
         this.jdbc = jdbc;
         this.transferRepository = transferRepository;
         this.walletRepository = walletRepository;
+
+        // Register domain counters for Prometheus metrics
+        this.transfersCreatedCounter = registry.counter("transfers.created.total");
+        this.transfersDeclinedCounter = registry.counter("transfers.declined.total");
+        this.transfersReplayCounter = registry.counter("transfers.replays.total");
     }
 
     @Transactional
@@ -32,6 +43,7 @@ public class TransferService {
         // 1. Idempotency Check: Return previous response if key exists
         Optional<TransferModels.TransferResponse> existing = transferRepository.findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
+            transfersReplayCounter.increment();
             return existing.get();
         }
 
@@ -66,8 +78,10 @@ public class TransferService {
         UUID transferId = UUID.randomUUID();
         try {
             transferRepository.create(transferId, idempotencyKey, fromWalletId, toWalletId, amountPaise, "SUCCESS", null);
+            transfersCreatedCounter.increment();
         } catch (DuplicateKeyException e) {
             // Concurrent request with same idempotency key won race condition
+            transfersReplayCounter.increment();
             return transferRepository.findByIdempotencyKey(idempotencyKey).orElseThrow();
         }
 
@@ -78,7 +92,9 @@ public class TransferService {
         UUID transferId = UUID.randomUUID();
         try {
             transferRepository.create(transferId, idempotencyKey, fromWalletId, toWalletId, amountPaise, "DECLINED", reason);
+            transfersDeclinedCounter.increment();
         } catch (DuplicateKeyException e) {
+            transfersReplayCounter.increment();
             return transferRepository.findByIdempotencyKey(idempotencyKey).orElseThrow();
         }
         return transferRepository.findByIdempotencyKey(idempotencyKey).orElseThrow();

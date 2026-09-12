@@ -15,6 +15,9 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: "always"
 
 wallet:
   initial-balance-paise: ${INITIAL_BALANCE_PAISE:100000}
