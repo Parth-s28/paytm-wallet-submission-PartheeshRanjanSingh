@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: paytm-wallet
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/paytm_wallet}
+    username: ${DB_USERNAME:wallet}
+    password: ${DB_PASSWORD:wallet}
+    hikari:
+      maximum-pool-size: 20
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+wallet:
+  initial-balance-paise: ${INITIAL_BALANCE_PAISE:100000}
