@@ -16,7 +16,6 @@ import java.util.UUID;
 @Service
 public class TransferService {
 
-
     private final JdbcTemplate jdbc;
     private final TransferRepository transferRepository;
     private final WalletRepository walletRepository;
@@ -38,14 +37,9 @@ public class TransferService {
         this.transfersReplayCounter = registry.counter("transfers.replays.total");
     }
 
-    /**
-     * Outer non-transactional orchestrator.
-     * Prevents PostgreSQL transaction aborts (25P02) when catching DuplicateKeyException.
-     */
     public TransferModels.TransferResponse handleTransfer(TransferModels.TransferRequest request) {
         String key = request.idempotencyKey();
 
-        // 1. Fast path: check if this idempotency key was already processed
         Optional<TransferModels.TransferResponse> existing = transferRepository.findByIdempotencyKey(key);
         if (existing.isPresent()) {
             transfersReplayCounter.increment();
@@ -53,10 +47,8 @@ public class TransferService {
         }
 
         try {
-            // 2. Perform atomic transfer inside transaction
             return executeTransfer(request);
         } catch (DuplicateKeyException e) {
-            // 3. Lost insert race to a concurrent thread; read winner's committed record
             transfersReplayCounter.increment();
             return transferRepository.findByIdempotencyKey(key)
                     .orElseThrow(() -> new IllegalStateException("Transfer record lost after conflict resolution"));
@@ -67,7 +59,6 @@ public class TransferService {
     public TransferModels.TransferResponse executeTransfer(TransferModels.TransferRequest request) {
         String idempotencyKey = request.idempotencyKey();
 
-        // Double check inside transaction boundary
         Optional<TransferModels.TransferResponse> existing = transferRepository.findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
             return existing.get();
@@ -81,7 +72,6 @@ public class TransferService {
             return recordFailedTransfer(idempotencyKey, fromWalletId, toWalletId, amountPaise, "SAME_WALLET_TRANSFER");
         }
 
-        // Lock wallets deterministically by UUID to eliminate deadlocks
         UUID firstLock = fromWalletId.compareTo(toWalletId) < 0 ? fromWalletId : toWalletId;
         UUID secondLock = fromWalletId.compareTo(toWalletId) < 0 ? toWalletId : fromWalletId;
 
@@ -96,7 +86,6 @@ public class TransferService {
             return recordFailedTransfer(idempotencyKey, fromWalletId, toWalletId, amountPaise, "INSUFFICIENT_FUNDS");
         }
 
-        // Ledger mutation
         jdbc.update("UPDATE wallets SET balance_paise = balance_paise - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", amountPaise, fromWalletId);
         jdbc.update("UPDATE wallets SET balance_paise = balance_paise + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", amountPaise, toWalletId);
 
