@@ -38,7 +38,7 @@ public class TransferService {
     }
 
     public TransferModels.TransferResponse handleTransfer(TransferModels.TransferRequest request) {
-        String key = request.idempotencyKey();
+        String key = request.getIdempotencyKey();
 
         Optional<TransferModels.TransferResponse> existing = transferRepository.findByIdempotencyKey(key);
         if (existing.isPresent()) {
@@ -57,21 +57,20 @@ public class TransferService {
 
     @Transactional
     public TransferModels.TransferResponse executeTransfer(TransferModels.TransferRequest request) {
-        String idempotencyKey = request.idempotencyKey();
+        String idempotencyKey = request.getIdempotencyKey();
 
         Optional<TransferModels.TransferResponse> existing = transferRepository.findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
             return existing.get();
         }
 
-        // Validate payload fields before invoking logic to avoid NullPointerExceptions
-        if (request.fromWalletId() == null || request.toWalletId() == null || request.amountPaise() == null) {
+        if (request.getFromWalletId() == null || request.getToWalletId() == null || request.getAmountPaise() == null) {
             throw new IllegalArgumentException("from_wallet_id, to_wallet_id, and amount_paise must not be null");
         }
 
-        UUID fromWalletId = request.fromWalletId();
-        UUID toWalletId = request.toWalletId();
-        long amountPaise = request.amountPaise();
+        UUID fromWalletId = request.getFromWalletId();
+        UUID toWalletId = request.getToWalletId();
+        long amountPaise = request.getAmountPaise();
 
         if (fromWalletId.equals(toWalletId)) {
             return recordFailedTransfer(idempotencyKey, fromWalletId, toWalletId, amountPaise, "SAME_WALLET_TRANSFER");

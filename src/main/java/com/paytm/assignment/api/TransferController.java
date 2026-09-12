@@ -21,17 +21,15 @@ public class TransferController {
             @RequestHeader(value = "X-Idempotency-Key", required = false) String headerKey,
             @RequestBody TransferModels.TransferRequest request) {
 
-        // Fallback logic for idempotency key
-        String key = (request.idempotencyKey() != null && !request.idempotencyKey().isBlank())
-                ? request.idempotencyKey()
+        String key = (request.getIdempotencyKey() != null && !request.getIdempotencyKey().isBlank())
+                ? request.getIdempotencyKey()
                 : (headerKey != null && !headerKey.isBlank()) ? headerKey : UUID.randomUUID().toString();
 
-        // Reconstruct the request with the guaranteed key
         TransferModels.TransferRequest fullRequest = new TransferModels.TransferRequest(
                 key,
-                request.fromWalletId(),
-                request.toWalletId(),
-                request.amountPaise()
+                request.getFromWalletId(),
+                request.getToWalletId(),
+                request.getAmountPaise()
         );
 
         TransferModels.TransferResponse response = transferService.handleTransfer(fullRequest);
