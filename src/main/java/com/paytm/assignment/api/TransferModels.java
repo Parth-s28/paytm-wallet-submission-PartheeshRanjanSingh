@@ -1,26 +1,29 @@
 package com.paytm.assignment.api;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.time.Instant;
 import java.util.UUID;
 
 public class TransferModels {
 
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record TransferRequest(
-            @JsonProperty("idempotency_key") String idempotencyKey,
-            @JsonProperty("from_wallet_id") UUID fromWalletId,
-            @JsonProperty("to_wallet_id") UUID toWalletId,
-            @JsonProperty("amount_paise") Long amountPaise
+            String idempotencyKey,
+            UUID fromWalletId,
+            UUID toWalletId,
+            Long amountPaise
     ) {}
 
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public record TransferResponse(
-            @JsonProperty("id") UUID id,
-            @JsonProperty("idempotency_key") String idempotencyKey,
-            @JsonProperty("from_wallet_id") UUID fromWalletId,
-            @JsonProperty("to_wallet_id") UUID toWalletId,
-            @JsonProperty("amount_paise") Long amountPaise,
-            @JsonProperty("status") String status,
-            @JsonProperty("decline_reason") String declineReason,
-            @JsonProperty("created_at") Instant createdAt
+            UUID id,
+            String idempotencyKey,
+            UUID fromWalletId,
+            UUID toWalletId,
+            Long amountPaise,
+            String status,
+            String declineReason,
+            Instant createdAt
     ) {}
 }

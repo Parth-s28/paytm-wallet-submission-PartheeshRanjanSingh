@@ -9,6 +9,8 @@ spring:
       maximum-pool-size: 20
   flyway:
     enabled: true
+  jackson:
+    property-naming-strategy: SNAKE_CASE
 
 management:
   endpoints:

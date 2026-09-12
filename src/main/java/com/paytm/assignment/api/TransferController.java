@@ -4,6 +4,8 @@ import com.paytm.assignment.service.TransferService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/transfers")
 public class TransferController {
@@ -19,11 +21,12 @@ public class TransferController {
             @RequestHeader(value = "X-Idempotency-Key", required = false) String headerKey,
             @RequestBody TransferModels.TransferRequest request) {
 
-        // Resolve key priority: Body parameter -> HTTP Header -> Random fallback
+        // Fallback logic for idempotency key
         String key = (request.idempotencyKey() != null && !request.idempotencyKey().isBlank())
                 ? request.idempotencyKey()
-                : (headerKey != null && !headerKey.isBlank()) ? headerKey : java.util.UUID.randomUUID().toString();
+                : (headerKey != null && !headerKey.isBlank()) ? headerKey : UUID.randomUUID().toString();
 
+        // Reconstruct the request with the guaranteed key
         TransferModels.TransferRequest fullRequest = new TransferModels.TransferRequest(
                 key,
                 request.fromWalletId(),
