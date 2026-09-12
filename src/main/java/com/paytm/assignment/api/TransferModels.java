@@ -1,22 +1,14 @@
 package com.paytm.assignment.api;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.UUID;
 
 public class TransferModels {
 
     public static class TransferRequest {
-        @JsonProperty("idempotency_key")
         private String idempotencyKey;
-
-        @JsonProperty("from_wallet_id")
         private UUID fromWalletId;
-
-        @JsonProperty("to_wallet_id")
         private UUID toWalletId;
-
-        @JsonProperty("amount_paise")
         private Long amountPaise;
 
         public TransferRequest() {}
@@ -32,31 +24,21 @@ public class TransferModels {
         public UUID getFromWalletId() { return fromWalletId; }
         public UUID getToWalletId() { return toWalletId; }
         public Long getAmountPaise() { return amountPaise; }
+
+        public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
+        public void setFromWalletId(UUID fromWalletId) { this.fromWalletId = fromWalletId; }
+        public void setToWalletId(UUID toWalletId) { this.toWalletId = toWalletId; }
+        public void setAmountPaise(Long amountPaise) { this.amountPaise = amountPaise; }
     }
 
     public static class TransferResponse {
-        @JsonProperty("id")
         private UUID id;
-
-        @JsonProperty("idempotency_key")
         private String idempotencyKey;
-
-        @JsonProperty("from_wallet_id")
         private UUID fromWalletId;
-
-        @JsonProperty("to_wallet_id")
         private UUID toWalletId;
-
-        @JsonProperty("amount_paise")
         private Long amountPaise;
-
-        @JsonProperty("status")
         private String status;
-
-        @JsonProperty("decline_reason")
         private String declineReason;
-
-        @JsonProperty("created_at")
         private Instant createdAt;
 
         public TransferResponse() {}
@@ -80,5 +62,14 @@ public class TransferModels {
         public String getStatus() { return status; }
         public String getDeclineReason() { return declineReason; }
         public Instant getCreatedAt() { return createdAt; }
+
+        public void setId(UUID id) { this.id = id; }
+        public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
+        public void setFromWalletId(UUID fromWalletId) { this.fromWalletId = fromWalletId; }
+        public void setToWalletId(UUID toWalletId) { this.toWalletId = toWalletId; }
+        public void setAmountPaise(Long amountPaise) { this.amountPaise = amountPaise; }
+        public void setStatus(String status) { this.status = status; }
+        public void setDeclineReason(String declineReason) { this.declineReason = declineReason; }
+        public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     }
 }

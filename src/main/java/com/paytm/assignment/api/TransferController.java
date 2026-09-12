@@ -18,13 +18,15 @@ public class TransferController {
 
     @PostMapping
     public ResponseEntity<TransferModels.TransferResponse> createTransfer(
-            @RequestHeader(value = "X-Idempotency-Key", required = false) String headerKey,
+            @RequestHeader(value = "Idempotency-Key", required = false) String headerKey,
             @RequestBody TransferModels.TransferRequest request) {
 
+        // Fallback logic for idempotency key
         String key = (request.getIdempotencyKey() != null && !request.getIdempotencyKey().isBlank())
                 ? request.getIdempotencyKey()
                 : (headerKey != null && !headerKey.isBlank()) ? headerKey : UUID.randomUUID().toString();
 
+        // Reconstruct the request with the guaranteed key
         TransferModels.TransferRequest fullRequest = new TransferModels.TransferRequest(
                 key,
                 request.getFromWalletId(),
