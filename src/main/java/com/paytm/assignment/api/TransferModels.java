@@ -10,7 +10,7 @@ public class TransferModels {
             @JsonProperty("idempotency_key") String idempotencyKey,
             @JsonProperty("from_wallet_id") UUID fromWalletId,
             @JsonProperty("to_wallet_id") UUID toWalletId,
-            @JsonProperty("amount_paise") long amountPaise
+            @JsonProperty("amount_paise") Long amountPaise
     ) {}
 
     public record TransferResponse(
@@ -18,7 +18,7 @@ public class TransferModels {
             @JsonProperty("idempotency_key") String idempotencyKey,
             @JsonProperty("from_wallet_id") UUID fromWalletId,
             @JsonProperty("to_wallet_id") UUID toWalletId,
-            @JsonProperty("amount_paise") long amountPaise,
+            @JsonProperty("amount_paise") Long amountPaise,
             @JsonProperty("status") String status,
             @JsonProperty("decline_reason") String declineReason,
             @JsonProperty("created_at") Instant createdAt

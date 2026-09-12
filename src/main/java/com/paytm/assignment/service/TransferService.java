@@ -64,6 +64,11 @@ public class TransferService {
             return existing.get();
         }
 
+        // Validate payload fields before invoking logic to avoid NullPointerExceptions
+        if (request.fromWalletId() == null || request.toWalletId() == null || request.amountPaise() == null) {
+            throw new IllegalArgumentException("from_wallet_id, to_wallet_id, and amount_paise must not be null");
+        }
+
         UUID fromWalletId = request.fromWalletId();
         UUID toWalletId = request.toWalletId();
         long amountPaise = request.amountPaise();

@@ -19,19 +19,19 @@ public class TransferController {
             @RequestHeader(value = "X-Idempotency-Key", required = false) String headerKey,
             @RequestBody TransferModels.TransferRequest request) {
 
-        // Resolve key priority: Body parameter -> HTTP Header -> Fallback UUID string
+        // Resolve key priority: Body parameter -> HTTP Header -> Random fallback
         String key = (request.idempotencyKey() != null && !request.idempotencyKey().isBlank())
                 ? request.idempotencyKey()
                 : (headerKey != null && !headerKey.isBlank()) ? headerKey : java.util.UUID.randomUUID().toString();
 
-        TransferModels.TransferRequest normalizedRequest = new TransferModels.TransferRequest(
+        TransferModels.TransferRequest fullRequest = new TransferModels.TransferRequest(
                 key,
                 request.fromWalletId(),
                 request.toWalletId(),
                 request.amountPaise()
         );
 
-        TransferModels.TransferResponse response = transferService.handleTransfer(normalizedRequest);
+        TransferModels.TransferResponse response = transferService.handleTransfer(fullRequest);
         return ResponseEntity.ok(response);
     }
 }
