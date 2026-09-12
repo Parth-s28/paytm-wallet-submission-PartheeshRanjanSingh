@@ -19,3 +19,7 @@ CREATE TABLE transfers (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT different_wallets CHECK (from_wallet_id <> to_wallet_id)
 );
+
+-- Essential foreign key indexes for performance
+CREATE INDEX idx_transfers_from_wallet ON transfers(from_wallet_id);
+CREATE INDEX idx_transfers_to_wallet ON transfers(to_wallet_id);

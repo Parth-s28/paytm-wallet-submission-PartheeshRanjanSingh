@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: paytm_wallet
+      POSTGRES_USER: wallet
+      POSTGRES_PASSWORD: wallet
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wallet -d paytm_wallet"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      args:
+        - JVM_OPTS=${JVM_OPTS:-} # Defaults to empty on Windows, can be overridden on Mac
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/paytm_wallet
+      DB_USERNAME: wallet
+      DB_PASSWORD: wallet
+      INITIAL_BALANCE_PAISE: 100000
+    ports: ["8080:8080"]
+    depends_on:
+      postgres:
+        condition: service_healthy
