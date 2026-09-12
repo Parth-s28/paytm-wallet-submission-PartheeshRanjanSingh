@@ -1,7 +1,7 @@
 package com.paytm.assignment.api;
 
 import com.paytm.assignment.service.TransferService;
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,15 +15,10 @@ public class TransferController {
     }
 
     @PostMapping
-    public TransferModels.TransferResponse createTransfer(
-            @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
+    public ResponseEntity<TransferModels.TransferResponse> createTransfer(
             @RequestBody TransferModels.TransferRequest request) {
 
-        return transferService.transferMoney(
-                idempotencyKey,
-                request.fromWalletId(),
-                request.toWalletId(),
-                request.amountPaise()
-        );
+        TransferModels.TransferResponse response = transferService.handleTransfer(request);
+        return ResponseEntity.ok(response);
     }
 }

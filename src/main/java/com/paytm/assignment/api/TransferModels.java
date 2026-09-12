@@ -6,6 +6,7 @@ import java.util.UUID;
 public class TransferModels {
 
     public record TransferRequest(
+            String idempotencyKey,
             UUID fromWalletId,
             UUID toWalletId,
             long amountPaise
