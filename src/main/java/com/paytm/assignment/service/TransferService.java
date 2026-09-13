@@ -8,8 +8,9 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +20,7 @@ public class TransferService {
     private final JdbcTemplate jdbc;
     private final TransferRepository transferRepository;
     private final WalletRepository walletRepository;
+    private final TransactionTemplate transactionTemplate;
 
     private final Counter transfersCreatedCounter;
     private final Counter transfersDeclinedCounter;
@@ -27,10 +29,12 @@ public class TransferService {
     public TransferService(JdbcTemplate jdbc,
                            TransferRepository transferRepository,
                            WalletRepository walletRepository,
+                           TransactionTemplate transactionTemplate,
                            MeterRegistry registry) {
         this.jdbc = jdbc;
         this.transferRepository = transferRepository;
         this.walletRepository = walletRepository;
+        this.transactionTemplate = transactionTemplate; // Spring provides this automatically!
 
         this.transfersCreatedCounter = registry.counter("transfers.created.total");
         this.transfersDeclinedCounter = registry.counter("transfers.declined.total");
@@ -47,7 +51,8 @@ public class TransferService {
         }
 
         try {
-            return executeTransfer(request);
+            // Programmatically execute the logic inside a guaranteed transaction boundary
+            return transactionTemplate.execute(status -> executeTransferInsideTransaction(request));
         } catch (DuplicateKeyException e) {
             transfersReplayCounter.increment();
             return transferRepository.findByIdempotencyKey(key)
@@ -55,8 +60,9 @@ public class TransferService {
         }
     }
 
-    @Transactional
-    public TransferModels.TransferResponse executeTransfer(TransferModels.TransferRequest request) {
+    // Notice this is now PRIVATE and has NO @Transactional annotation.
+    // It runs safely because TransactionTemplate wraps it.
+    private TransferModels.TransferResponse executeTransferInsideTransaction(TransferModels.TransferRequest request) {
         String idempotencyKey = request.getIdempotencyKey();
 
         Optional<TransferModels.TransferResponse> existing = transferRepository.findByIdempotencyKey(idempotencyKey);
@@ -76,15 +82,18 @@ public class TransferService {
             return recordFailedTransfer(idempotencyKey, fromWalletId, toWalletId, amountPaise, "SAME_WALLET_TRANSFER");
         }
 
+        // Strict Lexicographical Lock Ordering
         UUID firstLock = fromWalletId.compareTo(toWalletId) < 0 ? fromWalletId : toWalletId;
         UUID secondLock = fromWalletId.compareTo(toWalletId) < 0 ? toWalletId : fromWalletId;
 
-        jdbc.queryForList("SELECT id FROM wallets WHERE id IN (?, ?) ORDER BY id FOR UPDATE", firstLock, secondLock);
+        jdbc.queryForList("SELECT id FROM wallets WHERE id = ? FOR UPDATE", firstLock);
+        jdbc.queryForList("SELECT id FROM wallets WHERE id = ? FOR UPDATE", secondLock);
 
-        Long senderBalance = jdbc.queryForObject("SELECT balance_paise FROM wallets WHERE id = ?", Long.class, fromWalletId);
-        if (senderBalance == null) {
+        List<Long> balances = jdbc.queryForList("SELECT balance_paise FROM wallets WHERE id = ?", Long.class, fromWalletId);
+        if (balances.isEmpty() || balances.get(0) == null) {
             return recordFailedTransfer(idempotencyKey, fromWalletId, toWalletId, amountPaise, "SENDER_NOT_FOUND");
         }
+        Long senderBalance = balances.get(0);
 
         if (senderBalance < amountPaise) {
             return recordFailedTransfer(idempotencyKey, fromWalletId, toWalletId, amountPaise, "INSUFFICIENT_FUNDS");
