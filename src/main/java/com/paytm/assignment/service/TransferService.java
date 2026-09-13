@@ -5,6 +5,8 @@ import com.paytm.assignment.repository.TransferRepository;
 import com.paytm.assignment.repository.WalletRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,8 @@ import java.util.UUID;
 
 @Service
 public class TransferService {
+
+    private static final Logger log = LoggerFactory.getLogger(TransferService.class);
 
     private final JdbcTemplate jdbc;
     private final TransferRepository transferRepository;
@@ -34,7 +38,7 @@ public class TransferService {
         this.jdbc = jdbc;
         this.transferRepository = transferRepository;
         this.walletRepository = walletRepository;
-        this.transactionTemplate = transactionTemplate; // Spring provides this automatically!
+        this.transactionTemplate = transactionTemplate;
 
         this.transfersCreatedCounter = registry.counter("transfers.created.total");
         this.transfersDeclinedCounter = registry.counter("transfers.declined.total");
@@ -47,21 +51,20 @@ public class TransferService {
         Optional<TransferModels.TransferResponse> existing = transferRepository.findByIdempotencyKey(key);
         if (existing.isPresent()) {
             transfersReplayCounter.increment();
+            log.info("domain_event=idempotent_replay_hit message=\"Idempotent replay hit for key: {}\"", key);
             return existing.get();
         }
 
         try {
-            // Programmatically execute the logic inside a guaranteed transaction boundary
             return transactionTemplate.execute(status -> executeTransferInsideTransaction(request));
         } catch (DuplicateKeyException e) {
             transfersReplayCounter.increment();
+            log.info("domain_event=idempotent_replay_hit message=\"Idempotent replay hit (concurrent) for key: {}\"", key);
             return transferRepository.findByIdempotencyKey(key)
                     .orElseThrow(() -> new IllegalStateException("Transfer record lost after conflict resolution"));
         }
     }
 
-    // Notice this is now PRIVATE and has NO @Transactional annotation.
-    // It runs safely because TransactionTemplate wraps it.
     private TransferModels.TransferResponse executeTransferInsideTransaction(TransferModels.TransferRequest request) {
         String idempotencyKey = request.getIdempotencyKey();
 
@@ -82,7 +85,6 @@ public class TransferService {
             return recordFailedTransfer(idempotencyKey, fromWalletId, toWalletId, amountPaise, "SAME_WALLET_TRANSFER");
         }
 
-        // Strict Lexicographical Lock Ordering
         UUID firstLock = fromWalletId.compareTo(toWalletId) < 0 ? fromWalletId : toWalletId;
         UUID secondLock = fromWalletId.compareTo(toWalletId) < 0 ? toWalletId : fromWalletId;
 
@@ -106,6 +108,8 @@ public class TransferService {
         transferRepository.create(transferId, idempotencyKey, fromWalletId, toWalletId, amountPaise, "SUCCESS", null);
         transfersCreatedCounter.increment();
 
+        log.info("domain_event=transfer_created message=\"Transfer created: debited {}, credited {}, amount_paise {}\"", fromWalletId, toWalletId, amountPaise);
+
         return transferRepository.findByIdempotencyKey(idempotencyKey).orElseThrow();
     }
 
@@ -113,6 +117,9 @@ public class TransferService {
         UUID transferId = UUID.randomUUID();
         transferRepository.create(transferId, idempotencyKey, fromWalletId, toWalletId, amountPaise, "DECLINED", reason);
         transfersDeclinedCounter.increment();
+
+        log.warn("domain_event=transfer_declined message=\"Transfer declined: from {}, to {}, amount_paise {}, reason: {}\"", fromWalletId, toWalletId, amountPaise, reason);
+
         return transferRepository.findByIdempotencyKey(idempotencyKey).orElseThrow();
     }
 }
